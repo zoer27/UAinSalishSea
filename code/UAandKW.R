@@ -3,7 +3,7 @@
 #last updated: 4/15/26
 
 library(tidyverse)
-#library(ggh4x) # for special scales
+library(ggh4x) # for special scales
 
 
 # Read in data ------------------------------------------------------------
@@ -53,13 +53,16 @@ pal3<-c( "#429e42", "#42c3cf", "goldenrod1","#c6d2b9", 'gray90')
 
 # Overlap by site ---------------------------------------------------------
 daily_site_kw$Month_fct<-factor(daily_site_kw$Month, levels = c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"))
+
 #making it so 0 bars actually show up
 daily_site_kw<-daily_site_kw %>% mutate(Zero_days = ifelse(Prop_SRKW == 0, 1, 0))
+
 #making 0 days of UA open circles
 daily_site_kw$shape_id<-ifelse(daily_site_kw$Prop_UA > 0, 1, 2)
 
-write_csv(daily_site_kw, "results/monthly_overlap_KW.csv")
+#write_csv(daily_site_kw, "results/monthly_overlap_KW.csv")
 
+#plotting
 site_plot_kw<-ggplot(daily_site_kw) + 
   geom_col(data = daily_site_kw[daily_site_kw$Zero_days == 0, ], aes(x = Month_fct, y = Prop_SRKW, width = Prop_site), position = "identity" , fill = "gray50") +
   geom_point(data = daily_site_kw[daily_site_kw$Zero_days == 1,], aes(x = Month_fct, y = Prop_SRKW), shape = 4, color = "gray50", size = 1) +
@@ -79,7 +82,7 @@ site_plot_kw
 
 
 # Overlap by day ----------------------------------------------------------
-
+#getting days when both KW and UA overlap
 daily_site_overlap<-daily_site_kw %>% 
   mutate(bothSRKWandUA = ifelse(SRKW == 1 & `UA absence/presence` == 1, 1, 0), 
          justUA = ifelse(bothSRKWandUA == 0 & `UA absence/presence` ==1, 1, 0), 
@@ -87,8 +90,11 @@ daily_site_overlap<-daily_site_kw %>%
          datetime = as_date(mdy(Date)), 
          recording_day = 1)
 
+#date bounds
 a<-min(daily_site_overlap$datetime)
 b<-max(daily_site_overlap$datetime)
+
+#filling in empty days
 alldays<-tibble(datetime = rep(seq(ymd(a), ymd(b), by = "1 day"), nsites,), 
                 Site = rep(c("WJF", "CJF", "PA", "DB", "TTP", "HB", "SB", "AB"),each = length(seq(ymd(a), ymd(b), by = "1 day"))))
 
@@ -98,20 +104,20 @@ daily_site_overlap2<-alldays %>% left_join(daily_site_overlap) %>%
                       ifelse(bothSRKWandUA == 1, "both", 
                              ifelse(justUA == 1, "UA", 
                                     ifelse(justSRKW == 1, "SRKW", "none")))))
-
+#making labels for plots
 daily_site_overlap2$col<-factor(daily_site_overlap2$col, levels = c("both", "SRKW", "UA", "none", "no recording"))  
 daily_site_overlap2$Site<-factor(daily_site_overlap2$Site, levels = c("WJF", "CJF", "PA", "DB", "TTP", "HB", "SB", "AB"))
 
-write_csv(daily_site_overlap2, "results/KW_UA_overlap_daily.csv")
+#write_csv(daily_site_overlap2, "results/KW_UA_overlap_daily.csv")
 
 labs<-c("Both SRKW and UA", "SRKW only", "UA only", "None","No recording")
 
-
+#plotting
 kw_overlap_daily<-ggplot(daily_site_overlap2) + 
   geom_tile(aes(x = datetime, y = Site, fill = col)) +
   scale_fill_manual(values = pal3, labels = labs) + 
   theme_classic() + 
-  scale_x_date(expand = c(0, 0), date_breaks = "2 months", 
+  scale_x_date(expand = c(0.04, 0), date_breaks = "2 month", 
                date_labels  = "%b %Y") + 
   scale_y_discrete(expand = c(0, 0), limits = rev) + 
   labs(x = "Day", y = "Site", fill = NULL) + 
@@ -120,7 +126,16 @@ kw_overlap_daily<-ggplot(daily_site_overlap2) +
 kw_overlap_daily
 
 
-#NOTES TO COME BACK TO:
-#why doesn't this start at July? 
+# Table of overlap --------------------------------------------------------
+head(daily_site_overlap2)
+#getting total recording days at each site
+tot_days<-daily_site_overlap2 %>% filter(recording_day == 1) %>% group_by(Site) %>% summarise(n = n())
 
+#getting the total number of days with both UA and SRKW
+overlap_days<-daily_site_overlap2 %>% group_by(Site) %>% summarise(nboth = sum(bothSRKWandUA, na.rm = TRUE))
 
+#calculating proportion
+prop_both_tab<-tot_days %>% left_join(overlap_days, by = "Site") %>% mutate(prop = nboth/n * 100)
+prop_both_tab
+
+#write_csv(prop_both_tab, "results/proportion_both_site.csv")

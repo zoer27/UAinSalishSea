@@ -1,9 +1,10 @@
 #Code for figures used in manuscript
 #Zoe Rand
-#Last updated 4/15/2026
+#Last updated 4/16/2026
 
 library(tidyverse)
-library(patchwork)
+library(patchwork) #for putting plots together
+library(ggh4x) # for special scales
 
 
 # Colors ------------------------------------------------------------------
@@ -216,6 +217,8 @@ ggsave("figures/fig6.png", Figure6, dpi = 600, width = 6, height = 4, units = "i
 #monthly overlap proportions
 daily_site_kw<-read_csv("results/monthly_overlap_KW.csv")
 #daily overlap
+daily_site_overlap2<-read_csv("results/KW_UA_overlap_daily.csv")
+
 
 fig7<-function(){
   daily_site_kw$Month_fct<-factor(daily_site_kw$Month, levels = c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"))
@@ -240,3 +243,26 @@ fig7<-function(){
 
 Figure7<-fig7()
 ggsave("figures/fig7.png", Figure7, dpi = 600, width = 7, height = 6, units = "in")
+
+
+fig8<-function(){
+  daily_site_overlap2$col<-factor(daily_site_overlap2$col, levels = c("both", "SRKW", "UA", "none", "no recording"))  
+  daily_site_overlap2$Site<-factor(daily_site_overlap2$Site, levels = c("WJF", "CJF", "PA", "DB", "TTP", "HB", "SB", "AB"))
+  labs<-c("Both SRKW and UA", "SRKW only", "UA only", "None","No recording")
+  
+  
+  kw_overlap_daily<-ggplot(daily_site_overlap2) + 
+    geom_tile(aes(x = datetime, y = Site, fill = col)) +
+    scale_fill_manual(values = pal3, labels = labs) + 
+    theme_classic() + 
+    scale_x_date(expand = c(0.04, 0), date_breaks = "2 month", 
+                 date_labels  = "%b %Y") + 
+    scale_y_discrete(expand = c(0, 0), limits = rev) + 
+    labs(x = "Day", y = "Site", fill = NULL) + 
+    theme(axis.ticks.y = element_blank(), 
+          axis.text.x = element_text(angle = 90))
+  return(print(kw_overlap_daily))
+}
+
+Figure8<-fig8()
+ggsave("figures/fig8.png", Figure8, dpi = 600, width = 8, height = 5, units = "in")
