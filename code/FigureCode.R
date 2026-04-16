@@ -232,7 +232,7 @@ fig7<-function(){
     scale_size_continuous(range = c(0.5, 1.5), guide = "none") +
     scale_shape_manual(values = c(19, 1), guide = "none") +
     theme_minimal() + 
-    labs(y = "Proportion of days", size = "Recording effort\n (by site)") + 
+    labs(y = "Proportion of days", size = "Recording effort\n (by site)", x = "Month") + 
     theme(axis.text.x = element_text(angle = 90), 
           strip.background = element_blank(), 
           panel.grid.minor = element_blank(),

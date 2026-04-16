@@ -139,3 +139,87 @@ prop_both_tab<-tot_days %>% left_join(overlap_days, by = "Site") %>% mutate(prop
 prop_both_tab
 
 #write_csv(prop_both_tab, "results/proportion_both_site.csv")
+
+
+
+# Supplement (all KW not just SRKW) ---------------------------------------
+daily_site_all_kw<-daily_site %>% 
+  mutate(Monthly_OO = sum(`Oo absence/presence`), Prop_OO = Monthly_OO/n())
+
+#month as a factor for plotting
+daily_site_all_kw$Month_fct<-factor(daily_site_all_kw$Month, levels = c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"))
+
+#making it so 0 days actually show up
+daily_site_all_kw<-daily_site_all_kw %>% mutate(Zero_days = ifelse(Prop_OO == 0, 1, 0))
+
+#making 0 days of UA open circles
+daily_site_all_kw$shape_id<-ifelse(daily_site_all_kw$Prop_UA > 0, 1, 2)
+
+write_csv(daily_site_all_kw, "results/monthly_overlap_allKW.csv")
+
+#plotting
+site_plot_all_kw<-ggplot(daily_site_all_kw) + 
+  geom_col(data = daily_site_all_kw[daily_site_all_kw$Zero_days == 0, ], aes(x = Month_fct, y = Prop_OO, width = Prop_site), position = "identity" , fill = "gray50") +
+  geom_point(data = daily_site_all_kw[daily_site_all_kw$Zero_days == 1,], aes(x = Month_fct, y = Prop_OO), shape = 4, color = "gray50", size = 1) +
+  geom_point(aes(x = Month_fct, y = Prop_UA, size = Prop_site, shape = as.factor(shape_id)), alpha = 0.5, color = sites) + 
+  facet_grid(Site~Year, scales = "free_x") + 
+  scale_y_continuous(limits = c(-0.05, 1.1)) +
+  scale_size_continuous(range = c(0.01, 1.5), guide = "none") +
+  scale_shape_manual(values = c(19, 1), guide = "none") +
+  theme_minimal() + 
+  labs(y = "Proportion of days", size = "Recording effort\n (by site)", x = "Month") + 
+  theme(axis.text.x = element_text(angle = 90), 
+        strip.background = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(color = "gray95"))
+
+site_plot_all_kw
+
+ggsave("figures/supplement_fig2.png", dpi = 600, width = 7, height = 6, units = "in")
+
+
+daily_site_overlap_all<-daily_site_all_kw %>% 
+  mutate(bothKWandUA = ifelse(`Oo absence/presence` == 1 & `UA absence/presence` == 1, 1, 0), 
+         justUA = ifelse(bothKWandUA == 0 & `UA absence/presence` ==1, 1, 0), 
+         justKW = ifelse(bothKWandUA == 0 & `Oo absence/presence` == 1, 1, 0), 
+         datetime = as_date(mdy(Date)), 
+         recording_day = 1)
+
+#date bounds
+a<-min(daily_site_overlap_all$datetime)
+b<-max(daily_site_overlap_all$datetime)
+
+#filling in empty days
+alldays<-tibble(datetime = rep(seq(ymd(a), ymd(b), by = "1 day"), nsites,), 
+                Site = rep(c("WJF", "CJF", "PA", "DB", "TTP", "HB", "SB", "AB"),each = length(seq(ymd(a), ymd(b), by = "1 day"))))
+
+daily_site_overlap_all2<-alldays %>% left_join(daily_site_overlap_all) %>% 
+  mutate(recording_day = ifelse(is.na(recording_day), 0, 1)) %>% 
+  mutate(col = ifelse(recording_day == 0, "no recording",
+                      ifelse(bothKWandUA == 1, "both", 
+                             ifelse(justUA == 1, "UA", 
+                                    ifelse(justKW == 1, "Orcinus orca", "none")))))
+#making labels for plots
+daily_site_overlap_all2$col<-factor(daily_site_overlap_all2$col, levels = c("both", "Orcinus orca", "UA", "none", "no recording"))  
+daily_site_overlap_all2$Site<-factor(daily_site_overlap_all2$Site, levels = c("WJF", "CJF", "PA", "DB", "TTP", "HB", "SB", "AB"))
+
+write_csv(daily_site_overlap_all2, "results/KW_UA_overlap_daily_allKW.csv")
+
+library(ggtext) # for italics in legend
+labs<-c("Both *Orcinus orca* and UA", "*Orcinus orca* only", "UA only", "None","No recording")
+
+#plotting
+kw_all_overlap_daily<-ggplot(daily_site_overlap_all2) + 
+  geom_tile(aes(x = datetime, y = Site, fill = col)) +
+  scale_fill_manual(values = pal3, labels = labs) + 
+  theme_classic() + 
+  scale_x_date(expand = c(0.04, 0), date_breaks = "2 month", 
+               date_labels  = "%b %Y") + 
+  scale_y_discrete(expand = c(0, 0), limits = rev) + 
+  labs(x = "Day", y = "Site", fill = NULL) + 
+  theme(axis.ticks.y = element_blank(), 
+        axis.text.x = element_text(angle = 90), 
+        legend.text = element_markdown())
+
+kw_all_overlap_daily
+ggsave("figures/supplement_fig3.png", kw_all_overlap_daily, dpi = 600, width = 8, height = 5, units = "in")
