@@ -74,9 +74,14 @@ lbls<-c("Cruise ship", "Cargo", "Tanker", "Pleasure", "Unknown vessel")
 names(lbls)<-c("Passenger", "Cargo", "Tanker", "Pleasure", "Unknown vessel")
 
 
+#plots
 fig3<-function(){
+  #making days with 0's into a different shape so adding as factor
+  daily2$shp<-factor(ifelse(daily2$Prop == 0, 1, 0))
+  daily3$shp<-factor(ifelse(daily3$Prop == 0, 1, 0))
+  #plot by signal type
   signal_plot<-ggplot(daily2) + 
-    geom_point(aes(x = Month, y = Prop, color = as.factor(Year), size = Prop_year)) + 
+    geom_point(aes(x = Month, y = Prop, color = as.factor(Year), size = Prop_year, shape = shp)) + 
     geom_line(aes(x = Month, y = Prop, color = as.factor(Year), group = as.factor(Year))) + 
     facet_wrap(~UA_type, scale = "free_y") + 
     scale_x_discrete(limits = c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"), 
@@ -84,13 +89,14 @@ fig3<-function(){
     scale_y_continuous(expand = expansion(mult = c(0, 0.08))) +
     scale_color_manual(values = year_pal) + 
     scale_size_continuous(range = c(0.2, 3)) +
+    scale_shape_manual(values = c(19, 1), guide = "none") + 
     theme_classic() + 
     labs(y = "Proportion of days with UA", color = "Year", size = "Recording effort") + 
     theme(axis.text.x = element_text(angle = 90), 
           strip.background = element_blank())
-  
+  #plot by vessel type 
   vessel_plot<-ggplot(daily3) + 
-    geom_point(aes(x = Month, y = Prop, color = as.factor(Year), size = Prop_year)) + 
+    geom_point(aes(x = Month, y = Prop, color = as.factor(Year), size = Prop_year, shape = shp)) + 
     geom_line(aes(x = Month, y = Prop, color = as.factor(Year), group = as.factor(Year))) + 
     facet_wrap(~Vessel_type, scales = "free_y", labeller = as_labeller(lbls)) + 
     scale_x_discrete(limits = c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"), 
@@ -99,11 +105,12 @@ fig3<-function(){
     scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
     scale_color_manual(values = year_pal)+
     scale_size_continuous(range = c(0.2, 3)) + 
+    scale_shape_manual(values = c(19, 1), guide = "none") + 
     theme_classic() + 
     labs(y = "Proportion of days with UA", color = "Year", size = "Recording effort") + 
     theme(axis.text.x = element_text(angle = 90), 
           strip.background = element_blank())
-  
+  #combine
   Fig3<-signal_plot/vessel_plot + plot_layout(axes = "collect", guides = "collect") + 
     plot_annotation(tag_levels = 'a', tag_suffix = ")") & guides(size = "none")
   
@@ -114,17 +121,19 @@ Figure3<-fig3()
 ggsave("figures/fig3.png", Figure3, dpi = 600, width = 6, height = 6, units = "in")
 
 fig4<-function(){
+  #making 0s open circles
+  daily$shp<-factor(ifelse(daily$Prop_UA == 0, 1, 0))
+  daily_site$shp<-factor(ifelse(daily$Prop_UA == 0, 1, 0))
   #Total UA across all sites by year
-  
-  #plot
   tot<-ggplot(daily) + 
-    geom_point(aes(x = Month, y = Prop_UA, color = as.factor(Year), size = Prop_year)) + 
+    geom_point(aes(x = Month, y = Prop_UA, color = as.factor(Year), size = Prop_year, shape = shp)) + 
     geom_line(aes(x = Month, y = Prop_UA, color = as.factor(Year), group = as.factor(Year))) + 
     scale_x_discrete(limits = c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"), 
                      labels = c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")) + 
     scale_y_continuous(limits = c(0, 0.8)) +
     scale_color_manual(values = year_pal) +
     scale_size_continuous(range = c(0.2, 3)) +
+    scale_shape_manual(values = c(19, 1), guide = "none") + 
     theme_classic() + 
     theme(axis.text.x = element_text(angle = 90)) +
     labs(y = "Proportion of days with UA", color = "Year", size = "Recording effort\n (All sites)") #+ 
@@ -132,7 +141,7 @@ fig4<-function(){
   
   
   site_plot<-ggplot(daily_site) + 
-    geom_point(aes(x = Month, y = Prop_UA, color = as.factor(Year), size = Prop_site)) + 
+    geom_point(aes(x = Month, y = Prop_UA, color = as.factor(Year), size = Prop_site, shape = shp)) + 
     geom_line(aes(x = Month, y = Prop_UA, color = as.factor(Year), group = as.factor(Year))) + 
     facet_wrap(~Site, ncol = 2, scales = "free_y") + 
     scale_x_discrete(limits = c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"), 
@@ -140,6 +149,7 @@ fig4<-function(){
     scale_y_continuous(expand = expansion(mult = c(0.1, 0.1))) +
     scale_color_manual(values = year_pal) +
     scale_size(range = c(0.05, 2.5), breaks = c(seq(0, 1, by = 0.05))) +
+    scale_shape_manual(values = c(19, 1), guide = "none") + 
     theme_classic() + 
     labs(y = "Proportion of days with UA", color = "Year", size = "Recording effort\n (by site)") + 
     theme(axis.text.x = element_text(angle = 90), 
@@ -163,7 +173,8 @@ ggsave("figures/fig4.png", Figure4, dpi = 600, width = 8, height = 5, units = "i
 #read in model results
 CIs<-read_csv("results/event_model_ests.csv")
 CIs$parameter_factor<-factor(CIs$parameter_factor, 
-                             levels = c("AB", "SB", "HB", "TTP", "DB", "PA", "CJF", "WJF", "speed", "distance"))
+                             levels = c("AB", "SB", "HB", "TTP", "DB", "PA", "CJF", "WJF", "speed", "distance"), 
+                             labels = c("site AB", "site SB", "site HB", "site TTP", "site DB", "site PA", "site CJF", "site WJF", "speed", "distance"))
 speed_preds<-read_csv("results/speed_predictions.csv")
 distance_preds<-read_csv("results/distance_predictions.csv")
 
@@ -221,11 +232,15 @@ daily_site_overlap2<-read_csv("results/KW_UA_overlap_daily.csv")
 
 
 fig7<-function(){
+  #creating factors so things are in order
   daily_site_kw$Month_fct<-factor(daily_site_kw$Month, levels = c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"))
   daily_site_kw$Site<-factor(daily_site_kw$Site, levels = c("WJF", "CJF", "PA", "DB", "TTP", "HB", "SB", "AB"))
+  
+  #plot
   site_plot_kw<-ggplot(daily_site_kw) + 
-    geom_col(data = daily_site_kw[daily_site_kw$Zero_days == 0, ], aes(x = Month_fct, y = Prop_SRKW, width = Prop_site), position = "identity" , fill = "gray50") +
+    geom_point(aes(x = Month_fct, y = Prop_SRKW), color = "transparent") + #adding transparent data so the months are in the right order
     geom_point(data = daily_site_kw[daily_site_kw$Zero_days == 1,], aes(x = Month_fct, y = Prop_SRKW), shape = 4, color = "gray50", size = 2) +
+    geom_col(data = daily_site_kw[daily_site_kw$Zero_days == 0, ], aes(x = Month_fct, y = Prop_SRKW, width = Prop_site), position = "identity" , fill = "gray50") +
     geom_point(aes(x = Month_fct, y = Prop_UA, size = Prop_site, shape = as.factor(shape_id)), alpha = 0.5, color = sites) + 
     facet_grid(Site~Year, scales = "free_x") + 
     scale_y_continuous(limits = c(-0.05, 1.1)) +
