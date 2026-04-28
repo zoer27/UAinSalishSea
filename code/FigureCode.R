@@ -209,15 +209,18 @@ ggsave("figures/fig4.png", Figure4, dpi = 600, width = 8, height = 5, units = "i
 # Event model -------------------------------------------------------------
 event_dat$UA_type <- factor(event_dat$UA_type, levels = c("Single band", "Multi-freq", "Sweeps"), 
                             labels = c("Single band UA", "Multi-freq UA", "Sweep UA"))
-
+event_dat$vessel_type<-factor(event_dat$vessel_type, levels = c("Passenger", "Cargo", "Tanker", "Pleasure", "Unknown vessel"), 
+                             labels = c("Cruise ship", "Cargo", "Tanker", "Pleasure", "Unknown vessel"))
 #data plot--speed and distance by UA and vessel type
 
 figureXX<-function(){
   p1<-ggplot(event_dat) + geom_histogram(aes(x = speed), bins = 40) + 
-    facet_wrap(~vessel_type, ncol = 1, scales = "free_y") + labs(x = "Average vessel speed (knots)")
+    facet_wrap(~vessel_type, ncol = 1, scales = "free_y") + 
+    labs(x = "Average vessel speed (knots)", tag = "a)")
   
-  p2<-ggplot(event_dat) + geom_histogram(aes(x = distance), bins = 40) + 
-    facet_wrap(~vessel_type, ncol = 1, scales = "free_y") + labs(x = "Maximum vessel distance (km)")
+  p2<-ggplot(event_dat) + geom_histogram(aes(x = distance), bins = 40 ) + 
+    facet_wrap(~vessel_type, ncol = 1, scales = "free_y") + 
+    labs(x = "Maximum vessel distance (km)", tag = "b)")
   
   
   p3<-ggplot(event_dat) + geom_histogram(aes(x = speed), bins = 40) + 
