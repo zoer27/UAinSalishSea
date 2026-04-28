@@ -1,12 +1,12 @@
 #Code for model of UA events in Salish Sea
 #Zoe Rand and Arial Brewer
 #7/28/25
-#last updated 4/15/2026
+#last updated 4/28/2026
 
 library(tidyverse)
 library(corrplot)
 library(glmmTMB)
-library(emmeans)
+library(marginaleffects)
 library(patchwork)
 
 # Read in Data ------------------------------------------------------------
@@ -52,6 +52,27 @@ table(event_dat$`Max vessel distance (km)`)
 summary(event_dat)
 
 
+# Data exploration plots --------------------------------------------------
+
+ggplot(event_dat) + geom_histogram(aes(x = speed)) + 
+  facet_wrap(~vessel_type, ncol = 1) + theme_classic() + 
+  scale_y_continuous(expand = c(0, 0))
+
+ggplot(event_dat) + geom_histogram(aes(x = distance)) + 
+  facet_wrap(~vessel_type, ncol = 1) + theme_classic() + 
+  scale_y_continuous(expand = c(0, 0))
+
+
+ggplot(event_dat) + geom_histogram(aes(x = speed)) + 
+  facet_wrap(~UA_type, ncol = 1)+ theme_classic() + 
+  scale_y_continuous(expand = c(0, 0))
+
+
+ggplot(event_dat) + geom_histogram(aes(x = distance)) + 
+  facet_wrap(~UA_type, ncol = 1)+ theme_classic() + 
+  scale_y_continuous(expand = c(0, 0))
+
+
 # Model -------------------------------------------------------------------
 
 #checking correlations
@@ -63,12 +84,14 @@ corrplot(x, type="upper",order="hclust",addCoef.col = "black")
 event_dat$site<-relevel(event_dat$site, ref = "WJF")
 levels(event_dat$site)
 
-#fitting model
-mod<-glmmTMB(duration ~ site+speed + distance,
-                  family=truncated_poisson(link = "log"), data=event_dat)
+#fitting model without intercept so there are no reference levels
+mod<-glmmTMB(duration ~ -1 + site+speed + distance,
+             family=truncated_poisson(link = "log"), data=event_dat)
 
 summary(mod)
-test<-model.matrix(mod)
+#double checking model matrix
+mtrx<-model.matrix(mod)
+
 #diagnostics
 diagnose(mod)
 p_resid<-residuals(mod, type = "pearson")
@@ -100,7 +123,14 @@ ggplot() + geom_point(aes(x = CIs$parameter_factor, y = CIs$Estimate, color = as
   theme_classic() + 
   theme(legend.position  = "none")
 
-
+#making it just for sites
+CIs %>% filter(!parameter %in% c("speed", "distance")) %>% ggplot() + 
+  geom_point(aes(x = Estimate, y = parameter_factor, color = factor(col))) + 
+  geom_linerange(aes(y = parameter_factor, xmin = `2.5 %`, xmax = `97.5 %`, color = factor(col))) + 
+  geom_vline(xintercept = 0, lty = 2, lwd = 0.5, color = "black") +
+  labs(x = "Effect", y = "Site") +
+  theme_classic() + 
+  theme(legend.position  = "none")
 
 #prediction plots
 speed_preds<-plot_predictions(mod,condition=list("speed", "distance" = mean(event_dat$distance, "site" = "WJF")), re.form=NA, vcov=TRUE, draw = FALSE)
@@ -138,31 +168,6 @@ pred_dist
 speed_pred + pred_dist
 
 
-#plot of site effects
-#note that these are going to approximate confidence intervals
-#because not calculated using the likelihood profile process 
-#but based on the parameter estimates I think these confidence intervals will be similar
-#but may slightly under-represent the uncertainty
-
-#setting reference grid (just want site effect not the covariates)
-RG<-ref_grid(mod, at = list(speed = 0, distance = 0))
-emmeans(RG, "site")
-plot(RG)
-ci_plot<-confint(RG, "site")
-ci_plot$site_fact<-factor(ci_plot$site, levels = c( "AB", "SB","HB", "TTP",
-                                                     "DB", "PA", "CJF", "WJF"), 
-                          labels = c("AB", "SB", "HB", "TTP", "DB", "PA", "CJF", "WJF"))
-
-write_csv(ci_plot, "results/marginal_site_effects.csv")
-
-ggplot(ci_plot) + geom_point(aes(x = prediction, y = site_fact), color = "#80cdc1") + 
-  geom_linerange(aes(y = site_fact, xmin = asymp.LCL, xmax = asymp.UCL), color ="#80cdc1") + 
-  geom_vline(xintercept = 0, lty = 2, lwd = 0.5, color = "black") +
-  labs(x = "Effect", y = "Site") +
-  theme_classic() + 
-  theme(legend.position  = "none")
-  
-  
 
 
 

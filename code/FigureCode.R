@@ -9,13 +9,15 @@ library(ggh4x) # for special scales
 
 # Colors ------------------------------------------------------------------
 #year_pal<-c('#fee08b','#bae4bc','#7bccc4','#43a2ca','#0868ac')
-year_pal2<-c('#fee08b','#bae4bc','#42c3cf','#43a2ca','#0868ac')
+year_pal2<-c('#fee08b','#bae4bc','#a4c1ff','#0868ac', "#2B0071")
 
 sites<-"#80cdc1"
 pal3<-c( "#429e42", "#42c3cf", "goldenrod1","#c6d2b9", 'gray90')
 
+stat_col<-c("red", "blue")
 
-# Daily Presence ----------------------------------------------------------
+
+# Data --------------------------------------------------------------------
 
 #read in data
 files<-paste0("data/dailypresence/DailyPresence_", c("CJF", "TTP", "AB", "DB", "WJF", "SB", "HB", "PA"), "_2019-2023.csv")
@@ -48,6 +50,40 @@ daily<-daily %>% group_by(Year, Month) %>%
 #adding effort
 daily<-daily %>% left_join(effort_ymsite2, by = c("Year", "Month", "Site")) %>% left_join(effort_ym, by = c("Year", "Month"))
 
+
+#event data
+files<-paste0("data/events/Events_", c("AB", "CJF", "DB", "HB","PA", "SB", "TTP", "WJF"), "_2019-2023.csv")
+dat<-list()
+for(i in 1:length(files)){
+  dat[[i]]<-read_csv(files[i])[, 1:14] #remove extra columns
+  dat[[i]]<-drop_na(dat[[i]]) #remove rows with NAs
+}
+
+dat[[8]]<-dat[[8]] %>% rename(`Max vessel distance (km)` = `Max distance (km)`)
+event_dat<-bind_rows(dat)
+
+table(event_dat$`Vessel type`)
+event_dat$`Vessel type`[event_dat$`Vessel type` == "Pleasure Craft"]<-"Pleasure"
+table(event_dat$`Vessel type`)
+
+#remove days without enough recording effort and events with unknown vessel type
+event_dat<-event_dat %>% filter(`# of daily wav files recorded` >= 138) %>%
+  filter(`Vessel type` != "Unknown") %>% filter(`Average vessel SOG (kts)` != "unknown") %>% 
+  filter(`Max vessel distance (km)` != "unknown") %>%
+  mutate(speed = as.numeric(`Average vessel SOG (kts)`), distance = as.numeric(`Max vessel distance (km)`), 
+         speed_c = scale(speed)[,1], 
+         distance_c = scale(distance)[,1],
+         site = as.factor(Site), vessel_type = as.factor(`Vessel type`), 
+         duration = `# of wav files with UA`, 
+         vessel_type_num = ifelse(vessel_type == "Cargo", 2, 
+                                  ifelse(vessel_type == "Passenger", 1, 
+                                         ifelse(vessel_type == "Pleasure", 3,
+                                                4))), 
+         UA_type = as.factor(`UA signal type`), 
+         UA_type_num = ifelse(UA_type == "Single band", 1,
+                              ifelse(UA_type == "Multi-freq", 2,
+                                     3)))
+# Daily Presence ----------------------------------------------------------
 #by site
 daily_site<-daily %>% group_by(Year, Month, Site) %>% 
   mutate(Monthly_UA = sum(`UA absence/presence`), Prop_UA = Monthly_UA/n())
@@ -89,7 +125,7 @@ fig3<-function(){
     scale_x_discrete(limits = c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"), 
                      labels = c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")) + 
     scale_y_continuous(expand = expansion(mult = c(0, 0.08))) +
-    scale_color_manual(values = year_pal) + 
+    scale_color_manual(values = year_pal2) + 
     scale_size_continuous(range = c(0.2, 3)) +
     scale_shape_manual(values = c(19, 1), guide = "none") + 
     theme_classic() + 
@@ -105,7 +141,7 @@ fig3<-function(){
                      labels = c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"), 
                      expand = c(0.1, 0)) + 
     scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
-    scale_color_manual(values = year_pal)+
+    scale_color_manual(values = year_pal2)+
     scale_size_continuous(range = c(0.2, 3)) + 
     scale_shape_manual(values = c(19, 1), guide = "none") + 
     theme_classic() + 
@@ -133,7 +169,7 @@ fig4<-function(){
     scale_x_discrete(limits = c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"), 
                      labels = c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")) + 
     scale_y_continuous(limits = c(0, 0.8)) +
-    scale_color_manual(values = year_pal) +
+    scale_color_manual(values = year_pal2) +
     scale_size_continuous(range = c(0.2, 3)) +
     scale_shape_manual(values = c(19, 1), guide = "none") + 
     theme_classic() + 
@@ -149,7 +185,7 @@ fig4<-function(){
     scale_x_discrete(limits = c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"), 
                      labels = c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")) + 
     scale_y_continuous(expand = expansion(mult = c(0.1, 0.1))) +
-    scale_color_manual(values = year_pal) +
+    scale_color_manual(values = year_pal2) +
     scale_size(range = c(0.05, 2.5), breaks = c(seq(0, 1, by = 0.05))) +
     scale_shape_manual(values = c(19, 1), guide = "none") + 
     theme_classic() + 
@@ -171,25 +207,59 @@ ggsave("figures/fig4.png", Figure4, dpi = 600, width = 8, height = 5, units = "i
 
 
 # Event model -------------------------------------------------------------
+event_dat$UA_type <- factor(event_dat$UA_type, levels = c("Single band", "Multi-freq", "Sweeps"), 
+                            labels = c("Single band UA", "Multi-freq UA", "Sweep UA"))
+
+#data plot--speed and distance by UA and vessel type
+
+figureXX<-function(){
+  p1<-ggplot(event_dat) + geom_histogram(aes(x = speed), bins = 40) + 
+    facet_wrap(~vessel_type, ncol = 1, scales = "free_y") + labs(x = "Average vessel speed (knots)")
+  
+  p2<-ggplot(event_dat) + geom_histogram(aes(x = distance), bins = 40) + 
+    facet_wrap(~vessel_type, ncol = 1, scales = "free_y") + labs(x = "Maximum vessel distance (km)")
+  
+  
+  p3<-ggplot(event_dat) + geom_histogram(aes(x = speed), bins = 40) + 
+    facet_wrap(~UA_type, ncol = 1, scales = "free_y")+ labs(x = "Average vessel speed (knots)")
+  
+  p4<-ggplot(event_dat) + geom_histogram(aes(x = distance), bins = 40) + 
+    facet_wrap(~UA_type, ncol = 1, scales = "free_y") + labs(x = "Maximum vessel distance (km)")
+   
+  p_up<-p1 + p3 + plot_layout(axes = "collect") 
+  p_down<-p2 + p4 + plot_layout(axes = "collect")
+  pall<-p_up/p_down &
+    theme_classic() &
+    scale_y_continuous(expand = c(0, 0)) & 
+    theme(strip.background = element_blank())
+  
+  return(print(pall))
+  }
+
+figureXX()
+FigureX<-figureXX()
+ggsave("figures/figXX.png", dpi = 600, width = 5, height = 7, units = "in")
 
 #read in model results
-#has been updated to just show combined site effects (emmeans)
-ci_plot<-read_csv("results/marginal_site_effects.csv")
-ci_plot$site_fact<-factor(ci_plot$site, levels = c( "AB", "SB","HB", "TTP",
-                                                    "DB", "PA", "CJF", "WJF"), 
-                          labels = c("AB", "SB", "HB", "TTP", "DB", "PA", "CJF", "WJF"))
+CIs<-read_csv("results/event_model_ests.csv")
+CIs$parameter_factor<-factor(CIs$param_lab, levels = c( "siteAB", "siteSB","siteHB", "siteTTP",
+                                                        "siteDB", "sitePA", "siteCJF", "siteWJF",
+                                                        "speed", "distance"), 
+                             labels = c("AB", "SB", "HB", "TTP", "DB", "PA", "CJF", "WJF", "speed", "distance"))
 
 speed_preds<-read_csv("results/speed_predictions.csv")
 distance_preds<-read_csv("results/distance_predictions.csv")
 
 fig5<-function(){
-  est_plot<-ggplot(ci_plot) + geom_point(aes(x = prediction, y = site_fact), color = sites) + 
-    geom_linerange(aes(y = site_fact, xmin = asymp.LCL, xmax = asymp.UCL), color =sites) + 
+  site_plot<-CIs %>% filter(!parameter %in% c("speed", "distance")) %>% ggplot() + 
+    geom_point(aes(x = Estimate, y = parameter_factor, color = factor(col))) + 
+    geom_linerange(aes(y = parameter_factor, xmin = `2.5 %`, xmax = `97.5 %`, color = factor(col))) + 
     geom_vline(xintercept = 0, lty = 2, lwd = 0.5, color = "black") +
-    labs(x = "Effect", y = "Site") +
+    scale_color_manual(values = stat_col) + 
+    labs(x = "Effect on UA event duration", y = "Site") +
     theme_classic() + 
     theme(legend.position  = "none")
-  return(print(est_plot))
+  return(print(site_plot))
 }
 
 Figure5<-fig5()
