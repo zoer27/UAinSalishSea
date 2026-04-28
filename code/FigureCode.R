@@ -8,7 +8,9 @@ library(ggh4x) # for special scales
 
 
 # Colors ------------------------------------------------------------------
-year_pal<-c('#fee08b','#bae4bc','#7bccc4','#43a2ca','#0868ac')
+#year_pal<-c('#fee08b','#bae4bc','#7bccc4','#43a2ca','#0868ac')
+year_pal2<-c('#fee08b','#bae4bc','#42c3cf','#43a2ca','#0868ac')
+
 sites<-"#80cdc1"
 pal3<-c( "#429e42", "#42c3cf", "goldenrod1","#c6d2b9", 'gray90')
 
@@ -171,19 +173,20 @@ ggsave("figures/fig4.png", Figure4, dpi = 600, width = 8, height = 5, units = "i
 # Event model -------------------------------------------------------------
 
 #read in model results
-CIs<-read_csv("results/event_model_ests.csv")
-CIs$parameter_factor<-factor(CIs$parameter_factor, 
-                             levels = c("AB", "SB", "HB", "TTP", "DB", "PA", "CJF", "WJF", "speed", "distance"), 
-                             labels = c("site AB", "site SB", "site HB", "site TTP", "site DB", "site PA", "site CJF", "site WJF", "speed", "distance"))
+#has been updated to just show combined site effects (emmeans)
+ci_plot<-read_csv("results/marginal_site_effects.csv")
+ci_plot$site_fact<-factor(ci_plot$site, levels = c( "AB", "SB","HB", "TTP",
+                                                    "DB", "PA", "CJF", "WJF"), 
+                          labels = c("AB", "SB", "HB", "TTP", "DB", "PA", "CJF", "WJF"))
+
 speed_preds<-read_csv("results/speed_predictions.csv")
 distance_preds<-read_csv("results/distance_predictions.csv")
 
 fig5<-function(){
-  est_plot<-ggplot() + geom_point(aes(x = CIs$parameter_factor, y = CIs$Estimate, color = as.factor(CIs$col))) + 
-    geom_linerange(aes(x = CIs$parameter_factor, ymin = CIs$`2.5 %`, ymax = CIs$`97.5 %`, color = as.factor(CIs$col))) + 
-    geom_hline(yintercept = 0, lty = 2, lwd = 0.5, color = "black") +
-    coord_flip() + 
-    labs(x = "Parameter", y = "Estimate") +
+  est_plot<-ggplot(ci_plot) + geom_point(aes(x = prediction, y = site_fact), color = sites) + 
+    geom_linerange(aes(y = site_fact, xmin = asymp.LCL, xmax = asymp.UCL), color =sites) + 
+    geom_vline(xintercept = 0, lty = 2, lwd = 0.5, color = "black") +
+    labs(x = "Effect", y = "Site") +
     theme_classic() + 
     theme(legend.position  = "none")
   return(print(est_plot))

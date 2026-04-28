@@ -6,7 +6,7 @@
 library(tidyverse)
 library(corrplot)
 library(glmmTMB)
-library(marginaleffects)
+library(emmeans)
 library(patchwork)
 
 # Read in Data ------------------------------------------------------------
@@ -68,7 +68,7 @@ mod<-glmmTMB(duration ~ site+speed + distance,
                   family=truncated_poisson(link = "log"), data=event_dat)
 
 summary(mod)
-
+test<-model.matrix(mod)
 #diagnostics
 diagnose(mod)
 p_resid<-residuals(mod, type = "pearson")
@@ -136,5 +136,34 @@ pred_dist<-g2 +
 pred_dist
 
 speed_pred + pred_dist
+
+
+#plot of site effects
+#note that these are going to approximate confidence intervals
+#because not calculated using the likelihood profile process 
+#but based on the parameter estimates I think these confidence intervals will be similar
+#but may slightly under-represent the uncertainty
+
+#setting reference grid (just want site effect not the covariates)
+RG<-ref_grid(mod, at = list(speed = 0, distance = 0))
+emmeans(RG, "site")
+plot(RG)
+ci_plot<-confint(RG, "site")
+ci_plot$site_fact<-factor(ci_plot$site, levels = c( "AB", "SB","HB", "TTP",
+                                                     "DB", "PA", "CJF", "WJF"), 
+                          labels = c("AB", "SB", "HB", "TTP", "DB", "PA", "CJF", "WJF"))
+
+write_csv(ci_plot, "results/marginal_site_effects.csv")
+
+ggplot(ci_plot) + geom_point(aes(x = prediction, y = site_fact), color = "#80cdc1") + 
+  geom_linerange(aes(y = site_fact, xmin = asymp.LCL, xmax = asymp.UCL), color ="#80cdc1") + 
+  geom_vline(xintercept = 0, lty = 2, lwd = 0.5, color = "black") +
+  labs(x = "Effect", y = "Site") +
+  theme_classic() + 
+  theme(legend.position  = "none")
+  
+  
+
+
 
 
