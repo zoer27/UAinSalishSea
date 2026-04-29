@@ -1,6 +1,6 @@
 #Code for figures used in manuscript
 #Zoe Rand
-#Last updated 4/16/2026
+#Last updated 4/29/2026
 
 library(tidyverse)
 library(patchwork) #for putting plots together
@@ -14,8 +14,10 @@ year_pal2<-c('#fee08b','#bae4bc','#a4c1ff','#0868ac', "#2B0071")
 sites<-"#80cdc1"
 pal3<-c( "#429e42", "#42c3cf", "goldenrod1","#c6d2b9", 'gray90')
 
-stat_col<-c("red", "blue")
+stat_col<-c("gray70", "blue")
 
+
+hists<-"#096F9A"
 
 # Data --------------------------------------------------------------------
 
@@ -214,19 +216,19 @@ event_dat$vessel_type<-factor(event_dat$vessel_type, levels = c("Passenger", "Ca
 #data plot--speed and distance by UA and vessel type
 
 figureXX<-function(){
-  p1<-ggplot(event_dat) + geom_histogram(aes(x = speed), bins = 40) + 
+  p1<-ggplot(event_dat) + geom_histogram(aes(x = speed), bins = 40, fill = hists) + 
     facet_wrap(~vessel_type, ncol = 1, scales = "free_y") + 
     labs(x = "Average vessel speed (knots)", tag = "a)")
   
-  p2<-ggplot(event_dat) + geom_histogram(aes(x = distance), bins = 40 ) + 
+  p2<-ggplot(event_dat) + geom_histogram(aes(x = distance), bins = 40, fill = hists ) + 
     facet_wrap(~vessel_type, ncol = 1, scales = "free_y") + 
     labs(x = "Maximum vessel distance (km)", tag = "b)")
   
   
-  p3<-ggplot(event_dat) + geom_histogram(aes(x = speed), bins = 40) + 
+  p3<-ggplot(event_dat) + geom_histogram(aes(x = speed), bins = 40, fill = hists) + 
     facet_wrap(~UA_type, ncol = 1, scales = "free_y")+ labs(x = "Average vessel speed (knots)")
   
-  p4<-ggplot(event_dat) + geom_histogram(aes(x = distance), bins = 40) + 
+  p4<-ggplot(event_dat) + geom_histogram(aes(x = distance), bins = 40, fill = hists) + 
     facet_wrap(~UA_type, ncol = 1, scales = "free_y") + labs(x = "Maximum vessel distance (km)")
    
   p_up<-p1 + p3 + plot_layout(axes = "collect") 
