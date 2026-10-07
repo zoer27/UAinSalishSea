@@ -1,6 +1,6 @@
 #Code for figures used in manuscript
 #Zoe Rand
-#Last updated 4/29/2026
+#Last updated for revisions 10/6/2026
 
 library(tidyverse)
 library(patchwork) #for putting plots together
@@ -57,7 +57,7 @@ daily<-daily %>% left_join(effort_ymsite2, by = c("Year", "Month", "Site")) %>% 
 files<-paste0("data/events/Events_", c("AB", "CJF", "DB", "HB","PA", "SB", "TTP", "WJF"), "_2019-2023.csv")
 dat<-list()
 for(i in 1:length(files)){
-  dat[[i]]<-read_csv(files[i])[, 1:14] #remove extra columns
+  dat[[i]]<-read_csv(files[i])[, 1:18] #remove extra columns
   dat[[i]]<-drop_na(dat[[i]]) #remove rows with NAs
 }
 
@@ -71,10 +71,9 @@ table(event_dat$`Vessel type`)
 #remove days without enough recording effort and events with unknown vessel type
 event_dat<-event_dat %>% filter(`# of daily wav files recorded` >= 138) %>%
   filter(`Vessel type` != "Unknown") %>% filter(`Average vessel SOG (kts)` != "unknown") %>% 
-  filter(`Max vessel distance (km)` != "unknown") %>%
-  mutate(speed = as.numeric(`Average vessel SOG (kts)`), distance = as.numeric(`Max vessel distance (km)`), 
-         speed_c = scale(speed)[,1], 
-         distance_c = scale(distance)[,1],
+  filter(`Median vessel distance (km)` != "unknown") %>%
+  mutate(speed = as.numeric(`Average vessel SOG (kts)`), 
+         med_distance = as.numeric(`Median vessel distance (km)`), 
          site = as.factor(Site), vessel_type = as.factor(`Vessel type`), 
          duration = `# of wav files with UA`, 
          vessel_type_num = ifelse(vessel_type == "Cargo", 2, 
@@ -85,6 +84,11 @@ event_dat<-event_dat %>% filter(`# of daily wav files recorded` >= 138) %>%
          UA_type_num = ifelse(UA_type == "Single band", 1,
                               ifelse(UA_type == "Multi-freq", 2,
                                      3)))
+
+#fixing weird median
+idx<-which(event_dat$med_distance == 18.2)
+event_dat$med_distance[idx]<-as.numeric(event_dat$`Starting vessel distance (km)`[idx]) #only one AIS detection for this one so start is the same as median
+
 # Daily Presence ----------------------------------------------------------
 #by site
 daily_site<-daily %>% group_by(Year, Month, Site) %>% 
@@ -158,9 +162,9 @@ fig3<-function(){
 }
 
 Figure3<-fig3()
-ggsave("figures/fig3.png", Figure3, dpi = 600, width = 6, height = 6, units = "in")
+ggsave("figures/fig3.pdf", Figure3, dpi = 600, width = 6, height = 6, units = "in")
 
-fig4<-function(){
+fig5<-function(){
   #making 0s open circles
   daily$shp<-factor(ifelse(daily$Prop_UA == 0, 1, 0))
   daily_site$shp<-factor(ifelse(daily$Prop_UA == 0, 1, 0))
@@ -203,9 +207,9 @@ AAABBBB"
   return(print(fig4))
 }
 
-Figure4<-fig4()
+Figure5<-fig5()
 
-ggsave("figures/fig4.png", Figure4, dpi = 600, width = 8, height = 5, units = "in")
+ggsave("figures/fig5.pdf", Figure5, dpi = 600, width = 8, height = 5, units = "in")
 
 
 # Event model -------------------------------------------------------------
@@ -215,21 +219,21 @@ event_dat$vessel_type<-factor(event_dat$vessel_type, levels = c("Passenger", "Ca
                              labels = c("Cruise ship", "Cargo", "Tanker", "Pleasure", "Unknown vessel"))
 #data plot--speed and distance by UA and vessel type
 
-figureXX<-function(){
+figure4<-function(){
   p1<-ggplot(event_dat) + geom_histogram(aes(x = speed), bins = 40, fill = hists) + 
     facet_wrap(~vessel_type, ncol = 1, scales = "free_y") + 
     labs(x = "Average vessel speed (knots)", tag = "a)")
   
-  p2<-ggplot(event_dat) + geom_histogram(aes(x = distance), bins = 40, fill = hists ) + 
+  p2<-ggplot(event_dat) + geom_histogram(aes(x = med_distance), bins = 40, fill = hists ) + 
     facet_wrap(~vessel_type, ncol = 1, scales = "free_y") + 
-    labs(x = "Maximum vessel distance (km)", tag = "b)")
+    labs(x = "Median vessel distance (km)", tag = "b)")
   
   
   p3<-ggplot(event_dat) + geom_histogram(aes(x = speed), bins = 40, fill = hists) + 
     facet_wrap(~UA_type, ncol = 1, scales = "free_y")+ labs(x = "Average vessel speed (knots)")
   
-  p4<-ggplot(event_dat) + geom_histogram(aes(x = distance), bins = 40, fill = hists) + 
-    facet_wrap(~UA_type, ncol = 1, scales = "free_y") + labs(x = "Maximum vessel distance (km)")
+  p4<-ggplot(event_dat) + geom_histogram(aes(x = med_distance), bins = 40, fill = hists) + 
+    facet_wrap(~UA_type, ncol = 1, scales = "free_y") + labs(x = "Median vessel distance (km)")
    
   p_up<-p1 + p3 + plot_layout(axes = "collect") 
   p_down<-p2 + p4 + plot_layout(axes = "collect")
@@ -241,36 +245,31 @@ figureXX<-function(){
   return(print(pall))
   }
 
-figureXX()
-FigureX<-figureXX()
-ggsave("figures/figXX.png", dpi = 600, width = 5, height = 7, units = "in")
+figure4()
+Figure4<-figure4()
+ggsave("figures/fig4.pdf", dpi = 600, width = 5, height = 7, units = "in")
 
 #read in model results
 CIs<-read_csv("results/event_model_ests.csv")
 CIs$parameter_factor<-factor(CIs$param_lab, levels = c( "siteAB", "siteSB","siteHB", "siteTTP",
                                                         "siteDB", "sitePA", "siteCJF", "siteWJF",
-                                                        "speed", "distance"), 
+                                                        "speed", "med_distance"), 
                              labels = c("AB", "SB", "HB", "TTP", "DB", "PA", "CJF", "WJF", "speed", "distance"))
 
 speed_preds<-read_csv("results/speed_predictions.csv")
 distance_preds<-read_csv("results/distance_predictions.csv")
 
-fig5<-function(){
-  site_plot<-CIs %>% filter(!parameter %in% c("speed", "distance")) %>% ggplot() + 
-    geom_point(aes(x = Estimate, y = parameter_factor, color = factor(col))) + 
-    geom_linerange(aes(y = parameter_factor, xmin = `2.5 %`, xmax = `97.5 %`, color = factor(col))) + 
+#revisions combined the plots
+fig6<-function(){
+  site_plot<-CIs %>% filter(!parameter %in% c("speed", "med_distance")) %>% ggplot() + 
+    geom_point(aes(x = Estimate, y = parameter_factor)) + 
+    geom_linerange(aes(y = parameter_factor, xmin = `2.5 %`, xmax = `97.5 %`)) + 
     geom_vline(xintercept = 0, lty = 2, lwd = 0.5, color = "black") +
     scale_color_manual(values = stat_col) + 
-    labs(x = "Effect on UA event duration", y = "Site") +
+    labs(x = "Estimated parameter value", y = "Site") +
     theme_classic() + 
     theme(legend.position  = "none")
-  return(print(site_plot))
-}
-
-Figure5<-fig5()
-ggsave("figures/fig5.png", Figure5, dpi = 600, width = 5, height = 6, units = "in")
-
-fig6<-function(){
+  
   g1<-ggplot() + geom_point(data = event_dat, aes(x = speed, y = duration), alpha = 0.5)
   
   speed_pred<-g1 + 
@@ -282,22 +281,23 @@ fig6<-function(){
     labs(x = "Average vessel speed (knots)", y = "UA event duration") +
     theme(legend.position = "none")
   
-  g2<-ggplot() + geom_point(data = event_dat, aes(x = distance, y = duration), alpha = 0.5)
+  g2<-ggplot() + geom_point(data = event_dat, aes(x = med_distance, y = duration), alpha = 0.5)
   pred_dist<-g2 + 
-    geom_ribbon(data = distance_preds, aes(x = distance, ymin = conf.low, ymax = conf.high), fill = "darkgreen", alpha = 0.5) + 
-    geom_line(data = distance_preds, aes(x = distance, y = estimate), color = "darkgreen") +
+    geom_ribbon(data = distance_preds, aes(x = med_distance, ymin = conf.low, ymax = conf.high), fill = "darkgreen", alpha = 0.5) + 
+    geom_line(data = distance_preds, aes(x = med_distance, y = estimate), color = "darkgreen") +
     theme_classic() + 
-    scale_x_continuous(limits = c(0, max(event_dat$distance)), expand = c(0, 0)) + 
+    scale_x_continuous(limits = c(0, max(event_dat$med_distance)), expand = c(0, 0)) + 
     scale_y_continuous(limits = c(0, 16), breaks = seq(0, 20, by = 4), expand = c(0, 0)) + 
-    labs(x = "Maximum vessel distance (km)", y = "UA event duration") +
+    labs(x = "Median vessel distance (km)", y = "UA event duration") +
     theme(legend.position = "none")
   
-  Fig6<-speed_pred + pred_dist + plot_annotation(tag_levels = "a", tag_suffix = ")")
+  Fig6<-site_plot + pred_dist + speed_pred  + plot_annotation(tag_levels = "a", tag_suffix = ")")
   return(print(Fig6))
+  
 }
 
 Figure6<-fig6()
-ggsave("figures/fig6.png", Figure6, dpi = 600, width = 6, height = 4, units = "in")
+ggsave("figures/fig6.pdf", Figure6, dpi = 600, width = 9, height = 5, units = "in")
 
 
 
@@ -335,7 +335,7 @@ fig7<-function(){
 }
 
 Figure7<-fig7()
-ggsave("figures/fig7.png", Figure7, dpi = 600, width = 7, height = 6, units = "in")
+ggsave("figures/fig7.pdf", Figure7, dpi = 600, width = 7, height = 6, units = "in")
 
 
 fig8<-function(){
@@ -358,4 +358,4 @@ fig8<-function(){
 }
 
 Figure8<-fig8()
-ggsave("figures/fig8.png", Figure8, dpi = 600, width = 8, height = 5, units = "in")
+ggsave("figures/fig8.pdf", Figure8, dpi = 600, width = 8, height = 5, units = "in")
